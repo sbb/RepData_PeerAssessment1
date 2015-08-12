@@ -1,28 +1,27 @@
----
-title: 'Reproducible Research: Peer Assessment 1'
-output:
-  html_document:
-    keep_md: yes
-  pdf_document: default
----
+# Reproducible Research: Peer Assessment 1
 
 
 ## Loading and preprocessing the data
 
-```{r loaddata, echo=TRUE, cache=TRUE}
 
+```r
 data <- read.csv("activity.csv")
-
 ```
 
 ## What is mean total number of steps taken per day?
 
 First, compute the total number of steps per day, excluding missing values
-```{r echo = TRUE}
+
+```r
 library(ggplot2)
 ```
 
-```{r meanstepsperday, echo=TRUE}
+```
+## Warning: package 'ggplot2' was built under R version 3.1.3
+```
+
+
+```r
 raw.data <- read.csv("activity.csv")
 
 data <- raw.data[!is.na(raw.data$steps),]
@@ -32,8 +31,8 @@ steps.by.date <- aggregate(steps ~ date, data = data, FUN = sum)
 
 A histogram of the steps per day shows the distribution:
 
-```{r meanstepshistogram, echo=TRUE}
 
+```r
 p <- ggplot(steps.by.date, aes(x=steps)) +  geom_histogram(binwidth = 1000, fill="blue")  + 
   labs(title = "Histogram showing steps per day frequencies", 
        x = "Steps per day",
@@ -42,11 +41,13 @@ p <- ggplot(steps.by.date, aes(x=steps)) +  geom_histogram(binwidth = 1000, fill
 print(p)
 ```
 
+![](PA1_template_files/figure-html/meanstepshistogram-1.png) 
+
 ### Mean and median steps taken per day
 
-The mean number of steps taken per day is `r format(mean(steps.by.date$steps))`.
+The mean number of steps taken per day is 10766.19.
 
-The median number of steps taken per day is `r format(median(steps.by.date$steps))`
+The median number of steps taken per day is 10765
 
 ## What is the average daily activity pattern?
 
