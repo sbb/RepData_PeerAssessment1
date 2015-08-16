@@ -16,10 +16,33 @@ First, we load the data, trying to be smart about not doing any more work than n
 
 ```{r loaddata, echo=FALSE, warning=FALSE}
 
+# Try to use what we have locally first, but fall back to retrieving the data file
+# from the web if necessary....
+if (!file.exists("activity.csv")) {
+  cat("[Need to get activity data file]\n")
+  if (!file.exists("activity.zip")) {
+    
+    cat("[No local compressed file; retrieving compressed data file from the network]\n")
+    download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip",
+                  destfile="activity.zip", 
+                  method=
+                    if (Sys.info()['sysname'] == 'Darwin') "curl" else "wget")
+    cat("[Downloaded]\n")
+  } else {
+    cat("[Have local compressed file, using that]\n")
+  }
+  cat("[Uncompressing]\n")
+  unzip("activity.zip")
+} else {
+  cat("[Leveraging existing activity data file]\n")
+}
+
+# Ok, we the data locally, now grab it!
 raw.data <- read.csv("activity.csv")
 
-# This may cause a warning in your version of R, so we supporess that by using the warning option above
+# These may cause a warning in your version of R, so we supporess that by using the warning option above
 library(ggplot2)
+library(gridExtra)
 ```
 
 
@@ -32,6 +55,7 @@ To answer this question, we compute the total number of steps per day, excluding
 data <- subset(raw.data, !is.na(raw.data$steps))
 
 steps.by.date <- aggregate(steps ~ date, data = data, FUN = sum)
+steps.by.date$imputed = FALSE   # We will use this later
 ```
 
 A histogram of the steps per day shows the distribution of the total steps per day:
@@ -78,7 +102,6 @@ To answer this question, we compute the mean of the steps by interval, then show
 ```{r averageDailyActivityPatternE}
 average.steps <- aggregate(steps ~ interval, data = data, FUN = mean)
 
-
 average.steps.plot <- ggplot(average.steps, aes(x = interval, y = steps)) + 
   geom_line() +
   labs(title = "Average number of steps, by interval during the day", 
@@ -123,6 +146,8 @@ One approach to correct the missing value situation is to devise a means of comi
 ```{r computeImputed, cache=TRUE}
 missing.steps.rows <- subset(raw.data, is.na(raw.data$steps))
 
+
+
 # Replace the missing step values with the imputed value, which I have chosen to be
 # the average steps for that interval where the steps are present.
 for (i in seq_along(missing.steps.rows$steps)) {
@@ -133,36 +158,72 @@ for (i in seq_along(missing.steps.rows$steps)) {
 # Now glue both parts back together, and compute the mean&median steps by date for it
 imputed.data <- rbind(missing.steps.rows, data)
 imputed.steps.by.date <- aggregate(steps ~ date, data = imputed.data, FUN = sum)
+# Mark these data as imputed, so they can be differentiated from the non-imputed data
+# when they are combined below
+imputed.steps.by.date$imputed <- TRUE
+
+# Compute the requested average values
 mean.imputed.steps.by.date <- mean(imputed.steps.by.date$steps)
 median.imputed.steps.by.date <- median(imputed.steps.by.date$steps)
 
-library(gridExtra)
- 
 imputed.histogram <- ggplot(imputed.steps.by.date, aes(x=steps)) +
-    geom_histogram(binwidth = 1000)  + 
-    geom_vline(xintercept = mean.imputed.steps.by.date, color = "red") +
-    
-  grid.arrange(steps.histogram, imputed.histogram, nrow=1, ncol=2)
-  #print(imputed.histogram)
-
-  print(sprintf("mean steps by date without imputed values: %f and with imputed values: %f", 
-                mean(steps.by.date$steps), 
-                mean(imputed.steps.by.date$steps)))
-  print(sprintf("median steps by date without imputed values %f and with imputed values: %f",median(steps.by.date$steps), median(imputed.steps.by.date$steps)))
-
-  combined.steps.data <- rbind(cbind(imputed.steps.by.date, imputed=TRUE), cbind(steps.by.date, imputed=FALSE))
-  
-  combined.histograms <- ggplot(combined.steps.data, aes(x=steps, fill = imputed) ) +  geom_histogram(binwidth = 1000)  + 
-    labs(title = "Histogram showing steps/day freq.", x = "Steps per day", y = "Frequency of days occurrence")
-  
-  print(combined.histograms)
-  
-  combined.histograms <- ggplot(combined.steps.data, aes(x=steps), fill="white") +  
-    geom_histogram(binwidth = 1000)  + 
-    facet_grid(imputed ~ .) +
-    geom_vline(xintercept = mean.imputed.steps.by.date, color = "red",linetype="dashed") +
-    labs(title = "Histogram showing steps/day freq.", x = "Steps per day", y = "Frequency of days occurrence")
-  #print(combined.histograms)
+  geom_histogram(binwidth = 1000)  + 
+  geom_vline(xintercept = mean.imputed.steps.by.date, color = "red") +
+  geom_vline(xintercept = median.imputed.steps.by.date, color="green", linetype="longdash") +
+  histogram.labels
 ```
+
+This yields the following side by side comparison plot:
+
+```{r histogramComparison}
+    
+# Now, show the results
+grid.arrange(histogram.with.mean.and.median, imputed.histogram, nrow=1, ncol=2)
+```
+
+The mean and median for this plot are `r format(mean.imputed.steps.by.date)` and 
+`r format(median.imputed.steps.by.date)`.  This time, they are even more identical than with the non-imputed values. 
+
+Comparing these values with the original means and medians:
+
+<table>
+  <tr>
+    <th></th>
+    <th>Original values&nbsp;&nbsp;</th>
+    <th>With imputed</th>
+  </tr>
+  <tr>
+    <th>Mean</th>
+    <td>`r format(mean(steps.by.date$steps))`</td>
+    <td>`r format(mean.imputed.steps.by.date)`</td>
+  </tr>
+  <tr>
+    <th>Median &nbsp;</th>
+    <td>`r format(median(steps.by.date$steps))`</td>
+    <td>`r format(median.imputed.steps.by.date)`</td>
+  </tr>
+</table>
+
+<p/>
+At first this may seem surprising that they are identical, but it follows from the fact that all that was added were existing average values, which should not change the means other than to concentrate them a bit more.
+
+#### Refining the comparison
+
+This plot above shows there seems to be concentration of the frequences when the imputed vaues are taken into account, but it is somewhat misleading in that the scales on the two graphs are not the same.
+
+So, below is shown a different plot that emphasizes the differences when both plots are shown together.
+
+```{r overlayedHisograms}
+
+combined.steps.data <- rbind(imputed.steps.by.date, steps.by.date)
+  
+combined.histograms <- ggplot(combined.steps.data, aes(x=steps, fill = imputed) ) + 
+  geom_histogram(binwidth = 1000, position="dodge")  + 
+  histogram.labels
+  
+print(combined.histograms)
+```
+
+
 
 ## Are there differences in activity patterns between weekdays and weekends?
