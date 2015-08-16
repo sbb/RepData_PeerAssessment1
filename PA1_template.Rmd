@@ -50,12 +50,12 @@ library(gridExtra)
 
 To answer this question, we compute the total number of steps per day, excluding missing values:
 
-```{r meanstepsperday, echo=TRUE}
+```{r meanstepsperday}
 
 data <- subset(raw.data, !is.na(raw.data$steps))
 
 steps.by.date <- aggregate(steps ~ date, data = data, FUN = sum)
-steps.by.date$imputed = FALSE   # We will use this later
+steps.by.date$imputed <- FALSE  # We use this later when combining with imputed data
 ```
 
 A histogram of the steps per day shows the distribution of the total steps per day:
@@ -143,10 +143,8 @@ These missing step values may skew the actual averages, so we now explore correc
 
 One approach to correct the missing value situation is to devise a means of coming up with representative numbers of steps by interval, using the average numbers of steps per interval computed over the rest of the dataset.
 
-```{r computeImputed, cache=TRUE}
+```{r computeImputed}
 missing.steps.rows <- subset(raw.data, is.na(raw.data$steps))
-
-
 
 # Replace the missing step values with the imputed value, which I have chosen to be
 # the average steps for that interval where the steps are present.
@@ -226,5 +224,28 @@ print(combined.histograms)
 ```
 
 
-
 ## Are there differences in activity patterns between weekdays and weekends?
+
+To address this question, it is necessary to first map the dates in the data to days of the week and then classify those as either weekend or weekdays.   It will then be possible to do a facet based plot showing the activity levels on the two types of days.
+
+```{r computeDayTypes}
+
+data.days.of.the.week <- weekdays(as.Date(imputed.data$date))
+imputed.data$dayType <- factor(ifelse(data.days.of.the.week %in% c('Saturday', 'Sunday'), 'weekend', 'weekday'))
+```
+
+Now simply compute the average steps taken by interval and dayType, and display the result.
+
+```{r computeAndPlotAverageByDayType}
+average.steps <- aggregate(steps ~ interval + dayType, data = imputed.data, FUN = mean)
+
+average.steps.plot <- ggplot(average.steps, aes(x = interval, y = steps)) + 
+  geom_line(color = "blue") +
+  facet_grid(dayType ~ .) +
+  labs(title = "Average number of steps, by interval during the day", 
+       x = "Interval in the day", y = "Average number of steps")
+
+print(average.steps.plot)
+```
+
+The data indicates that the person in question (during the range of dates measured), appears to get up later during the weekend, and be a bit more active consistently throughout the day as compared with during the ordinary work weeks.

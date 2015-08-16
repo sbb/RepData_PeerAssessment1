@@ -83,3 +83,6 @@ if (TRUE) {
     labs(title = "Histogram showing steps/day freq.", x = "Steps per day", y = "Frequency of days occurrence")
   #print(combined.histograms)
 }
+
+f <- weekdays(as.Date(combined.steps.data$date))
+combined.steps.data = transform(combined.steps.data, day.type = factor(ifelse(f == 'Saturday' | f == 'Sunday', 'weekend', 'weekday')))
