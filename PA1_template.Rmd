@@ -2,68 +2,93 @@
 title: 'Reproducible Research: Peer Assessment 1'
 output:
   html_document:
-    keep_md: yes
+    keep_md: no
   pdf_document: default
 ---
 
 
 ## Loading and preprocessing the data
 
-```{r loaddata, echo=TRUE, cache=TRUE}
-
-data <- read.csv("activity.csv")
-
+```{r setoptions, echo=TRUE}
 ```
 
-## What is mean total number of steps taken per day?
+First, we load the data, trying to be smart about not doing any more work than necessary.
 
-First, compute the total number of steps per day, excluding missing values
-```{r echo = TRUE}
+```{r loaddata, echo=FALSE, warning=FALSE}
+
+raw.data <- read.csv("activity.csv")
+
+# This may cause a warning in your version of R, so we supporess that by using the warning option above
 library(ggplot2)
 ```
 
-```{r meanstepsperday, echo=TRUE}
-raw.data <- read.csv("activity.csv")
 
-data <- raw.data[!is.na(raw.data$steps),]
+## What is mean total number of steps taken per day?
+
+To answer this question, we compute the total number of steps per day, excluding missing values:
+
+```{r meanstepsperday, echo=TRUE}
+
+data <- subset(raw.data, !is.na(raw.data$steps))
 
 steps.by.date <- aggregate(steps ~ date, data = data, FUN = sum)
 ```
 
-A histogram of the steps per day shows the distribution:
+A histogram of the steps per day shows the distribution of the total steps per day:
 
-```{r meanstepshistogram, echo=TRUE}
+```{r meanstepshistogram}
 
-p <- ggplot(steps.by.date, aes(x=steps)) +  geom_histogram(binwidth = 1000, fill="blue")  + 
-  labs(title = "Histogram showing steps per day frequencies", 
-       x = "Steps per day",
-       y = "Frequency of occurrence")
+# We will have several graphcs that can use the same label, so factor its definition
+# into a single place for easier maintenance.
+histogram.labels <- labs(title = "Histogram showing steps/day freq.",
+                         x = "Steps per day", 
+                         y = "Frequency of days")
 
-print(p)
+basic.histogram <- ggplot(steps.by.date, aes(x=steps)) +  
+  geom_histogram(binwidth = 1000, fill="blue", color="black")  + 
+  histogram.labels
+
+print(basic.histogram)
 ```
 
 ### Mean and median steps taken per day
 
 The mean number of steps taken per day is `r format(mean(steps.by.date$steps))`.
 
-The median number of steps taken per day is `r format(median(steps.by.date$steps))`
+The median number of steps taken per day is `r format(median(steps.by.date$steps))`.
+
+It will be more informative to see these combined with the graph, like so:
+
+```{r histogramWithMeanAndMedian}
+
+histogram.with.mean.and.median = basic.histogram +
+  geom_vline(xintercept=mean(steps.by.date$steps), color="red") +
+  geom_vline(xintercept=median(steps.by.date$steps), color="green", linetype="longdash")
+
+print(histogram.with.mean.and.median)
+
+```
+
+As is apparent, because these two numbers are so close, they overlap.
 
 ## What is the average daily activity pattern?
 
+To answer this question, we compute the mean of the steps by interval, then show the data as a line plot of interval vs average number of steps, with some interesting characteristics:
 
-```{r averageDailyActivityPattern, echo=TRUE}
+```{r averageDailyActivityPatternE}
 average.steps <- aggregate(steps ~ interval, data = data, FUN = mean)
 
-p <- ggplot(average.steps, aes(x = interval, y = steps)) + 
+
+average.steps.plot <- ggplot(average.steps, aes(x = interval, y = steps)) + 
   geom_line() +
   labs(title = "Average number of steps, by interval during the day", 
        x = "Interval in the day", y = "Average number of steps")
 
-print(p)
+print(average.steps.plot)
 ```
 
 The interval with the maximum average number of steps is calculated by:
-```{r maxAverageSteps, echo+TRUE}
+```{r maxAverageSteps}
 average.steps.max <- average.steps[which.max(average.steps$steps),]
 max.interval <- average.steps.max$interval
 
@@ -77,8 +102,67 @@ max.interval.time <- sprintf("%d:%02d %s", max.interval.hour,
 
 And its value is `r max.interval`, or `r max.interval.time`.
 
+Showing this on the graph, we get:
+
+```{r}
+print(average.steps.plot + geom_vline(xintercept=max.interval, color="red"))
+```
+
 ## Imputing missing values
 
+The data set contains many rows with missing values for the number of steps.  The following code calculates and shows just how many rows have missing step information:
 
+```{r missingStepInfo, echo=TRUE}
+print(sum(is.na(raw.data$steps)))
+```
+
+These missing step values may skew the actual averages, so we now explore correcting this defect by "imputing" values according to some algorithm for this missing values
+
+One approach to correct the missing value situation is to devise a means of coming up with representative numbers of steps by interval, using the average numbers of steps per interval computed over the rest of the dataset.
+
+```{r computeImputed, cache=TRUE}
+missing.steps.rows <- subset(raw.data, is.na(raw.data$steps))
+
+# Replace the missing step values with the imputed value, which I have chosen to be
+# the average steps for that interval where the steps are present.
+for (i in seq_along(missing.steps.rows$steps)) {
+  interval <- missing.steps.rows[i,]$interval
+  missing.steps.rows[i,]$steps = average.steps[average.steps$interval == interval,]$steps
+}
+
+# Now glue both parts back together, and compute the mean&median steps by date for it
+imputed.data <- rbind(missing.steps.rows, data)
+imputed.steps.by.date <- aggregate(steps ~ date, data = imputed.data, FUN = sum)
+mean.imputed.steps.by.date <- mean(imputed.steps.by.date$steps)
+median.imputed.steps.by.date <- median(imputed.steps.by.date$steps)
+
+library(gridExtra)
+ 
+imputed.histogram <- ggplot(imputed.steps.by.date, aes(x=steps)) +
+    geom_histogram(binwidth = 1000)  + 
+    geom_vline(xintercept = mean.imputed.steps.by.date, color = "red") +
+    
+  grid.arrange(steps.histogram, imputed.histogram, nrow=1, ncol=2)
+  #print(imputed.histogram)
+
+  print(sprintf("mean steps by date without imputed values: %f and with imputed values: %f", 
+                mean(steps.by.date$steps), 
+                mean(imputed.steps.by.date$steps)))
+  print(sprintf("median steps by date without imputed values %f and with imputed values: %f",median(steps.by.date$steps), median(imputed.steps.by.date$steps)))
+
+  combined.steps.data <- rbind(cbind(imputed.steps.by.date, imputed=TRUE), cbind(steps.by.date, imputed=FALSE))
+  
+  combined.histograms <- ggplot(combined.steps.data, aes(x=steps, fill = imputed) ) +  geom_histogram(binwidth = 1000)  + 
+    labs(title = "Histogram showing steps/day freq.", x = "Steps per day", y = "Frequency of days occurrence")
+  
+  print(combined.histograms)
+  
+  combined.histograms <- ggplot(combined.steps.data, aes(x=steps), fill="white") +  
+    geom_histogram(binwidth = 1000)  + 
+    facet_grid(imputed ~ .) +
+    geom_vline(xintercept = mean.imputed.steps.by.date, color = "red",linetype="dashed") +
+    labs(title = "Histogram showing steps/day freq.", x = "Steps per day", y = "Frequency of days occurrence")
+  #print(combined.histograms)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
