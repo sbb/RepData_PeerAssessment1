@@ -219,6 +219,7 @@ combined.steps.data <- rbind(imputed.steps.by.date, steps.by.date)
   
 combined.histograms <- ggplot(combined.steps.data, aes(x=steps, fill = imputed) ) + 
   geom_histogram(binwidth = 1000, position="dodge")  + 
+  scale_fill_manual(values=c('blue','black')) +
   histogram.labels
   
 print(combined.histograms)
