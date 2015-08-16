@@ -12,7 +12,8 @@ output:
 ```{r setoptions, echo=TRUE}
 ```
 
-First, we load the data, trying to be smart about not doing any more work than necessary.
+First, we load the data, trying to be smart about not doing any more work than necessary.  Messages indicate what loading is being done, or whether the code was able to use what data was available on the local file system.
+
 
 ```{r loaddata, echo=FALSE, warning=FALSE}
 
@@ -66,7 +67,7 @@ A histogram of the steps per day shows the distribution of the total steps per d
 # into a single place for easier maintenance.
 histogram.labels <- labs(title = "Histogram showing steps/day freq.",
                          x = "Steps per day", 
-                         y = "Frequency of days")
+                         y = "# of days with given step activity level")
 
 basic.histogram <- ggplot(steps.by.date, aes(x=steps)) +  
   geom_histogram(binwidth = 1000, fill="blue", color="black")  + 
@@ -99,7 +100,7 @@ As is apparent, because these two numbers are so close, they overlap.
 
 To answer this question, we compute the mean of the steps by interval, then show the data as a line plot of interval vs average number of steps, with some interesting characteristics:
 
-```{r averageDailyActivityPatternE}
+```{r averageDailyActivityPattern}
 average.steps <- aggregate(steps ~ interval, data = data, FUN = mean)
 
 average.steps.plot <- ggplot(average.steps, aes(x = interval, y = steps)) + 
@@ -131,11 +132,13 @@ Showing this on the graph, we get:
 print(average.steps.plot + geom_vline(xintercept=max.interval, color="red"))
 ```
 
+
+
 ## Imputing missing values
 
 The data set contains many rows with missing values for the number of steps.  The following code calculates and shows just how many rows have missing step information:
 
-```{r missingStepInfo, echo=TRUE}
+```{r missingStepInfo}
 print(sum(is.na(raw.data$steps)))
 ```
 
@@ -211,7 +214,7 @@ This plot above shows there seems to be concentration of the frequences when the
 
 So, below is shown a different plot that emphasizes the differences when both plots are shown together.
 
-```{r overlayedHisograms}
+```{r overlayedHistograms}
 
 combined.steps.data <- rbind(imputed.steps.by.date, steps.by.date)
   
@@ -223,6 +226,9 @@ combined.histograms <- ggplot(combined.steps.data, aes(x=steps, fill = imputed) 
 print(combined.histograms)
 ```
 
+What appears to be going on here is that, for the most part, the effect of adding additional imputed values does not change the graph much except for the values that are fall into the mean value range.
+
+This result is somewhat surprising, and should be investigated further to develop a more complete explanation.
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
