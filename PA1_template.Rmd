@@ -228,7 +228,17 @@ print(combined.histograms)
 
 What appears to be going on here is that, for the most part, the effect of adding additional imputed values does not change the graph much except for the values that are fall into the mean value range.
 
-This result is somewhat surprising, and should be investigated further to develop a more complete explanation.
+This is a somewhat surprising result.  What I believe is the explanation is as follows:
+
+* there are 61 days total in the data set
+* 8 of which are missing step data, 53 have step data
+* when the 8 days are gifted with synthetic data, taken from the average interval values,
+  it makes them have a number of steps per day that reflects the average values across all the remaining days
+* this means that the 8 additional days essentially fall into the bin that contains the
+  most days with the average values of the 53 original days, thus causing an increase in height for that
+  bin alone
+* the combined graph shows that the bin containing the largest number of days with the "average" total number of steps/day is increased by 8, which is the newly added 8 days
+with imputed data
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
